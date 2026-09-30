@@ -1,0 +1,107 @@
+# Continuous integration.
+#
+# Three jobs, because they fail for different reasons and a reader should be
+# able to tell which from the job name alone: the suite, the linter, and the
+# wheel. Everything runs on every push to a long-lived branch and on every pull
+# request; nothing here needs a secret, a network service or a model, so a fork
+# can run it too.
+name: CI
+
+on:
+  push:
+    branches: [main, refactoring]
+  pull_request:
+
+# A second push to the same branch cancels the run still in flight. The suite is
+# under a minute, so this is about noise rather than cost.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Both operating systems on purpose. The one test failure this repository
+    # has had that only reproduced on one platform was a Windows-only import
+    # error in the demonstrator, found by hand. A Linux-only matrix would have
+    # missed it, and the project is developed on Windows and deployed on Linux.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    name: tests (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # --frozen, not --locked: the lockfile is the input, and a run that
+      # quietly resolved something newer would test a dependency set nobody
+      # has. If uv.lock and pyproject.toml disagree, this step fails, which is
+      # the report we want.
+      - run: uv sync --frozen
+
+      # The suite needs no network, no model and no database — see conftest.py,
+      # which keeps a developer's .env out of the run so the declared defaults
+      # are the baseline. If this ever needs a service, something is wrong with
+      # the change rather than with the runner.
+      - run: uv run pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+
+      # Pinned here rather than in the dev group. pyproject.toml explains why
+      # ruff is not a locked dependency: it would move uv.lock on every ruff
+      # release and cost `uv sync --frozen` its meaning. Pinning the version in
+      # the workflow keeps the lockfile still and keeps CI deterministic, so a
+      # new ruff release is a deliberate bump here instead of a red build
+      # nobody asked for.
+      - run: uvx ruff@0.16.9 check .
+
+  build:
+    runs-on: ubuntu-latest
+    name: wheel builds and imports
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+
+      - run: uv build
+
+      # Building is not the check — importing is. A published wheel of this
+      # project was once uninstallable because a dependency's next major
+      # renamed a symbol the framework imports, and `uv build` was perfectly
+      # happy about it. So the wheel is installed into an empty environment and
+      # every documented import path is exercised, which is what actually
+      # broke. The list mirrors the Supported table in docs/api-stability.md,
+      # in its order, and tests/test_community_docs.py fails if the two drift --
+      # which is how three of those paths were found missing from here.
+      - name: import the wheel in a clean environment
+        run: |
+          uv run --isolated --no-project \
+            --with "$(ls dist/*.whl)" \
+            python -c "
+          import erebots
+          from erebots.agents import BaseAgent, BaseSpecialist, AgentResponse, TraceStep
+          from erebots.agents.specialist import BaseSpecialist
+          from erebots.agents.orchestrator import OrchestratorAgent
+          from erebots.agents.a2a import A2AClient, create_a2a_app
+          from erebots.agents.mcp import MCPClient, MCPToolError
+          from erebots.agents.loader import load_agents, configured_urls
+          from erebots.server import create_app
+          from erebots.runtime import AgentEvent, ConversationService, UserContextStoreProtocol
+          from erebots.runtime import render_user_context
+          from erebots.persistence import Base, UserContextStore, make_engine
+          from erebots.config import settings
+          from erebots.security.keycloak import KeycloakError, decode_token
+          from erebots.security.internal_token import InternalTokenProvider
+          from erebots.security.claims import ClaimsMapper, user_fields_from_claims
+          print('wheel ok:', erebots.__version__)
+          "

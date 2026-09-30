@@ -1,0 +1,30 @@
+# TLS disabled for local development
+# tls:
+#   certificates:
+#     - certFile: /certs/cert.pem
+#       keyFile: /certs/key.pem
+
+http:
+  middlewares:
+    # Admin middleware - restrict access to admin IPs
+    # Configure admin_ips in traefik.yml or use environment variables
+    admin-auth:
+      ipAllowList:
+        sourceRange:
+          - "127.0.0.1/32"
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+        # For production, comment above and set specific admin IPs:
+        # - "YOUR_PUBLIC_IP/32"
+
+    # Secure headers middleware
+    secure-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        featurePolicy: "geolocation 'none'; microphone 'none'; camera 'none'"
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true

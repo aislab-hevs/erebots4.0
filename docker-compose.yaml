@@ -1,0 +1,211 @@
+
+services:
+  # =========================
+  # Traefik Reverse Proxy
+  # =========================
+  traefik:
+    image: traefik:v3.7.13
+    container_name: erebots-traefik
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--ping=true"
+      - "--ping.entryPoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8081:8080"   # dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ./traefik:/certs:ro
+    networks:
+      - erebots
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # =========================
+  # Keycloak (IAM)
+  # =========================
+  erebots-keycloak:
+    image: keycloak/keycloak:26.7.4
+    container_name: erebots-keycloak
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://erebots-kc-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: auth.erebots.local
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_BIND_ADDRESS: 0.0.0.0
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=erebots-network"
+
+      # HTTPS router
+      - "traefik.http.routers.keycloak.rule=Host(`auth.erebots.local`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+
+      # HTTP router → redirect
+      - "traefik.http.routers.keycloak-http.rule=Host(`auth.erebots.local`)"
+      - "traefik.http.routers.keycloak-http.entrypoints=web"
+      - "traefik.http.routers.keycloak-http.middlewares=redirect-https"
+
+      # Middleware redirect
+      - "traefik.http.middlewares.redirect-https.redirectscheme.scheme=https"
+
+      # Service
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
+      # Admin dashboard access (Keycloak admin panel)
+      - "traefik.http.routers.keycloak-admin.rule=Host(`auth.erebots.local`) && PathPrefix(`/admin`)"
+      - "traefik.http.routers.keycloak-admin.entrypoints=websecure"
+      - "traefik.http.routers.keycloak-admin.tls=true"
+      - "traefik.http.routers.keycloak-admin.priority=2"
+      - "traefik.http.routers.keycloak-admin.middlewares=admin-auth@file,secure-headers@file"
+    networks:
+      - erebots
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
+      - ./keycloak:/opt/keycloak/data/export
+    depends_on:
+      erebots-kc-db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -ec 'exec 3<>/dev/tcp/127.0.0.1/8080; printf \"GET /realms/master/.well-known/openid-configuration HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; read -r status <&3; [[ \"$$status\" == *\"200\"* ]]'",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # =========================
+  # Postgres for Keycloak (IAM data).
+  # Distinct instance from the app DB so their lifecycles stay independent.
+  # =========================
+  erebots-kc-db:
+    image: postgres:17.11
+    container_name: erebots-kc-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - erebots-kc-db-data:/var/lib/postgresql/data
+    networks:
+      - erebots
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # =========================
+  # Postgres for application data (UserContext, profile, consents, history).
+  # Distinct instance from the Keycloak DB.
+  # =========================
+  erebots-app-db:
+    image: postgres:17.11
+    container_name: erebots-app-db
+    environment:
+      POSTGRES_DB: erebots
+      POSTGRES_USER: erebots
+      POSTGRES_PASSWORD: erebots
+    volumes:
+      - erebots-app-db-data:/var/lib/postgresql/data
+    networks:
+      - erebots
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erebots -d erebots"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # =========================
+  # Erebots4.0 API
+  # =========================
+  erebots-api:
+    build: .
+    container_name: erebots-api
+    env_file:
+      - .env
+    depends_on:
+      erebots-keycloak:
+        condition: service_healthy
+      erebots-app-db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=erebots-network"
+
+      # HTTPS router
+      - "traefik.http.routers.api.rule=Host(`app.erebots.local`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
+
+      # HTTP → HTTPS
+      - "traefik.http.routers.api-http.rule=Host(`app.erebots.local`)"
+      - "traefik.http.routers.api-http.entrypoints=web"
+      - "traefik.http.routers.api-http.middlewares=redirect-https"
+
+      # redirect middleware
+      - "traefik.http.middlewares.redirect-https.redirectscheme.scheme=https"
+
+      # service
+      - "traefik.http.services.api.loadbalancer.server.port=7860"
+
+      # Admin dashboard access (API health/status)
+      - "traefik.http.routers.api-admin.rule=Host(`app.erebots.local`) && PathPrefix(`/admin`)"
+      - "traefik.http.routers.api-admin.entrypoints=websecure"
+      - "traefik.http.routers.api-admin.tls=true"
+      - "traefik.http.routers.api-admin.priority=2"
+      - "traefik.http.routers.api-admin.middlewares=admin-auth@file,secure-headers@file"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - erebots
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:7860/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# =========================
+# Volumes
+# =========================
+volumes:
+  erebots-kc-db-data:
+  erebots-app-db-data:
+
+# =========================
+# Network
+# =========================
+networks:
+  erebots:
+    name: erebots-network
+    driver: bridge

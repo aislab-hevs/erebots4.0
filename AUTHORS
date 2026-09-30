@@ -1,0 +1,22 @@
+Erebots4.0 — authors
+====================
+
+Copyright (c) 2026 HES-SO Valais-Wallis, Applied Intelligent Agents Lab (AISLab).
+Licensed under the MIT License; see LICENSE.
+
+The citation author list, in order, all at HES-SO Valais-Wallis. CITATION.cff
+carries the same names in the same order, with the affiliation on each entry,
+and is what GitHub reads; this file is the human-readable copy, and
+`pyproject.toml`'s `authors` field is the packaging one. All three are the same
+claim written three times, so they change together.
+
+    1. Elia Pacioni              https://orcid.org/0000-0002-1557-4870
+    2. Davide Calvaresi          https://orcid.org/0000-0001-9816-7439
+    3. Andrei Catalin Coman      https://orcid.org/0009-0000-3646-2352
+    4. Ismael Jaggi              https://orcid.org/0009-0005-0092-5446
+    5. Valerio Crocetti          https://orcid.org/0009-0002-3760-6041
+    6. Gaetano Manzo             https://orcid.org/0000-0002-1682-6865
+    7. Michael Ignaz Schumacher  https://orcid.org/0000-0002-5123-5075
+
+Who committed what is a separate question, and the git history answers it
+directly: `git shortlog -sne --all`.

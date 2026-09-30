@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EREBOTS</title>
+  <!-- No build step: Vue 3 + keycloak-js from a CDN. Same pattern works in React. -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/keycloak-js@25/lib/keycloak.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Zalando+Sans+Expanded:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #0a0a0a; --muted: #8a8a8a; --line: #e4e4e4;
+      --bubble-user: #0a0a0a; --bubble-user-fg: #ffffff; --soft: #f6f6f6;
+      --accent: #0a0a0a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0c; --fg: #f2f2f2; --muted: #9a9a9a; --line: #26262a;
+        --bubble-user: #f2f2f2; --bubble-user-fg: #0b0b0c; --soft: #17171a;
+        --accent: #f2f2f2;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font-family: "Zalando Sans Expanded", system-ui, sans-serif;
+      display: flex; flex-direction: column;
+    }
+    /* ── header ─────────────────────────────────────────── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px; border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; background: var(--bg); z-index: 10;
+    }
+    .wordmark { font-weight: 700; letter-spacing: 6px; font-size: 15px; user-select: none; }
+    .hbtns { display: flex; align-items: center; gap: 10px; }
+    .ghost {
+      border: 1px solid var(--line); background: transparent; color: var(--fg);
+      padding: 7px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 12.5px;
+      transition: border-color .15s ease, transform .15s ease;
+    }
+    .ghost:hover { border-color: var(--fg); }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 999px; border: 1px solid var(--fg);
+      background: var(--bg); color: var(--fg); font-weight: 600; font-size: 12px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      letter-spacing: .5px; transition: transform .15s ease;
+    }
+    .avatar:hover { transform: scale(1.05); }
+    .menu {
+      position: absolute; right: 22px; top: 60px; background: var(--bg);
+      border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+      box-shadow: 0 12px 32px rgba(0,0,0,.18); min-width: 180px;
+    }
+    .menu a, .menu button {
+      display: block; width: 100%; text-align: left; padding: 11px 16px;
+      background: none; border: none; color: var(--fg); font: inherit; font-size: 13px;
+      cursor: pointer; text-decoration: none;
+    }
+    .menu a:hover, .menu button:hover { background: var(--soft); }
+    .menu .who { padding: 11px 16px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
+
+    /* ── agents drawer ──────────────────────────────────── */
+    .drawer {
+      position: fixed; top: 0; right: 0; height: 100%; width: min(380px, 92vw);
+      background: var(--bg); border-left: 1px solid var(--line); z-index: 30;
+      transform: translateX(100%); transition: transform .25s ease; display: flex; flex-direction: column;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer header { position: static; border-bottom: 1px solid var(--line); }
+    .drawer .list { overflow-y: auto; padding: 14px 18px; flex: 1; }
+    .agent-card { border: 1px solid var(--line); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
+    .agent-head {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer;
+      background: var(--soft);
+    }
+    .agent-head .name { font-weight: 650; font-size: 13.5px; }
+    .tag {
+      font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 9px;
+      border-radius: 999px; border: 1px solid var(--line); color: var(--muted);
+    }
+    .tag.router { border-color: var(--fg); color: var(--fg); }
+    .chev { margin-left: auto; color: var(--muted); transition: transform .2s ease; font-size: 11px; }
+    .agent-card.open .chev { transform: rotate(90deg); }
+    .agent-body { padding: 12px 14px; font-size: 12.5px; display: none; }
+    .agent-card.open .agent-body { display: block; }
+    .agent-body .desc { color: var(--muted); margin: 0 0 10px; line-height: 1.5; }
+    .skill { padding: 7px 0; border-top: 1px dashed var(--line); line-height: 1.45; }
+    .skill code { font-size: 11.5px; background: var(--soft); padding: 2px 6px; border-radius: 6px; }
+    .skill .sdesc { color: var(--muted); }
+    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; }
+
+    /* ── chat ───────────────────────────────────────────── */
+    main { flex: 1; overflow-y: auto; }
+    .thread { max-width: 780px; margin: 0 auto; padding: 28px 18px 130px; }
+    .hero { text-align: center; margin-top: 18vh; user-select: none; }
+    .hero .big { font-weight: 700; letter-spacing: 10px; font-size: clamp(26px, 5vw, 44px); opacity: .9; }
+    .hero .sub { color: var(--muted); font-size: 13px; margin-top: 12px; letter-spacing: 1px; }
+    .row { display: flex; margin: 14px 0; }
+    .row.user { justify-content: flex-end; }
+    .bubble {
+      max-width: 82%; padding: 12px 16px; border-radius: 18px; font-size: 14.5px; line-height: 1.55;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
+    .user .bubble { background: var(--bubble-user); color: var(--bubble-user-fg); border-bottom-right-radius: 6px; }
+    .bot .bubble { border: 1px solid var(--line); border-bottom-left-radius: 6px; width: 100%; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    }
+    .badge .dot { width: 6px; height: 6px; border-radius: 99px; background: var(--accent); }
+    details.panel { margin: 8px 0; border: 1px dashed var(--line); border-radius: 10px; }
+    details.panel summary {
+      cursor: pointer; padding: 7px 12px; font-size: 11px; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--muted); user-select: none; list-style: none;
+    }
+    details.panel summary::-webkit-details-marker { display: none; }
+    details.panel[open] summary { border-bottom: 1px dashed var(--line); }
+    .panel .inner { padding: 10px 12px; font-size: 12.5px; color: var(--muted); line-height: 1.6; white-space: pre-wrap; }
+    .trace-step { padding: 3px 0; }
+    .trace-step b { color: var(--fg); font-weight: 600; }
+    .cursor { display: inline-block; width: 8px; height: 15px; background: var(--fg); vertical-align: -2px;
+      animation: blink .85s steps(1) infinite; border-radius: 1px; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .error { color: #d33; }
+    .stats {
+      margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line);
+      font-size: 10.5px; letter-spacing: .8px; color: var(--muted); user-select: none;
+    }
+
+    /* ── composer ───────────────────────────────────────── */
+    .composer {
+      position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, var(--bg) 35%);
+      padding: 26px 18px 22px;
+    }
+    .composer form {
+      max-width: 780px; margin: 0 auto; display: flex; gap: 10px;
+      border: 1px solid var(--line); border-radius: 999px; padding: 8px 8px 8px 20px; background: var(--bg);
+      transition: border-color .15s ease;
+    }
+    .composer form:focus-within { border-color: var(--fg); }
+    .composer input {
+      flex: 1; border: none; outline: none; background: transparent; color: var(--fg);
+      font: inherit; font-size: 14.5px;
+    }
+    .composer button {
+      border: none; border-radius: 999px; width: 40px; height: 40px; cursor: pointer;
+      background: var(--fg); color: var(--bg); font-size: 16px; flex: none;
+      display: flex; align-items: center; justify-content: center; transition: opacity .15s ease;
+    }
+    .composer button:disabled { opacity: .35; cursor: default; }
+  </style>
+</head>
+<body>
+  <div id="app" style="display: contents;">
+    <header>
+      <div class="wordmark">{{ brand }}</div>
+      <div class="hbtns">
+        <button class="ghost" @click="drawer = true">Agents &amp; Skills</button>
+        <div class="avatar" @click="menu = !menu" :title="userName">{{ initials }}</div>
+      </div>
+      <div class="menu" v-if="menu" @click.self="menu = false">
+        <div class="who">{{ userName }}</div>
+        <a v-if="accountUrl" :href="accountUrl" target="_blank" rel="noopener">User profile</a>
+        <button v-if="mode !== 'none'" @click="logout">Logout</button>
+        <div v-else class="who" style="border: none;">auth disabled (dev)</div>
+      </div>
+    </header>
+
+    <div class="backdrop" v-if="drawer" @click="drawer = false"></div>
+    <aside class="drawer" :class="{ open: drawer }">
+      <header>
+        <div class="wordmark" style="letter-spacing: 3px; font-size: 13px;">AGENTS &amp; SKILLS</div>
+        <button class="ghost" @click="drawer = false">✕</button>
+      </header>
+      <div class="list">
+        <div v-if="!agents.length" style="color: var(--muted); font-size: 13px;">Discovering agents…</div>
+        <div class="agent-card" v-for="a in agents" :key="a.name" :class="{ open: a._open }">
+          <div class="agent-head" @click="a._open = !a._open">
+            <span class="name">{{ a.name }}</span>
+            <span class="tag" :class="{ router: a.role === 'router' }">{{ a.role === 'router' ? 'router' : 'A2A' }}</span>
+            <span class="chev">▶</span>
+          </div>
+          <div class="agent-body">
+            <p class="desc">{{ a.description }}</p>
+            <div v-if="a.skills && a.skills.length">
+              <div class="skill" v-for="s in a.skills" :key="s.name">
+                <code>{{ s.name }}</code> <span class="sdesc">— {{ s.description }}</span>
+              </div>
+            </div>
+            <div v-else class="sdesc" style="color: var(--muted);">No skills advertised.</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main ref="scroller">
+      <div class="thread">
+        <div class="hero" v-if="!messages.length">
+          <div class="big">{{ brand }}</div>
+          <div class="sub">multi-agent · A2A · MCP</div>
+        </div>
+        <div class="row" v-for="(m, i) in messages" :key="i" :class="m.role === 'user' ? 'user' : 'bot'">
+          <div class="bubble">
+            <div class="badge" v-if="m.role === 'bot' && m.agent">
+              <span class="dot"></span>{{ m.agent }}
+            </div>
+            <details class="panel" v-if="m.reasoning">
+              <summary>thinking</summary>
+              <div class="inner">{{ m.reasoning }}</div>
+            </details>
+            <details class="panel" v-for="(text, name) in m.contributions" :key="name">
+              <summary>contribution · {{ name }}</summary>
+              <div class="inner">{{ text }}</div>
+            </details>
+            <span :class="{ error: m.error }">{{ m.text }}</span><span class="cursor" v-if="m.streaming"></span>
+            <details class="panel" v-if="m.trace && m.trace.length">
+              <summary>trace · {{ m.trace.length }} steps</summary>
+              <div class="inner">
+                <div class="trace-step" v-for="(t, j) in m.trace" :key="j">
+                  <b>{{ t.agent }}</b> · {{ t.action }}<template v-if="t.detail"> — {{ t.detail }}</template>
+                </div>
+              </div>
+            </details>
+            <div class="stats" v-if="m.stats">{{ m.stats }}</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="composer">
+      <form @submit.prevent="send">
+        <input v-model="draft" :placeholder="initializing ? 'Loading…' : (busy ? 'Streaming…' : 'Ask anything…')" :disabled="busy || initializing" autofocus />
+        <button :disabled="busy || initializing || !draft.trim()" title="Send">↑</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // --- config: point these at your deployment ----------------------------
+    const CONFIG = {
+      // apiBase "" → SAME ORIGIN: the API serves this page (frontend=web in
+      // Docker at app.erebots.local). Auth = the Keycloak session cookie the
+      // server set at login; no keycloak-js needed. When served by the dev
+      // static server on :5173, default to the local API instead.
+      apiBase: location.port === "5173" ? "http://127.0.0.1:7860" : "",
+      // Cross-origin dev only: true → browser login via keycloak-js (bearer).
+      useKeycloak: false,
+      keycloak: { url: "https://auth.erebots.local", realm: "erebots", clientId: "erebots-webapp" },
+      brand: "EREBOTS",
+    };
+    // cookie   → same origin, server-side login (cookie flows automatically)
+    // keycloak → cross-origin with browser login (bearer header)
+    // none     → cross-origin against an enable_auth=false API
+    const MODE = CONFIG.apiBase === "" ? "cookie" : (CONFIG.useKeycloak ? "keycloak" : "none");
+
+    const { createApp, ref, reactive, nextTick } = Vue;
+    const kc = MODE === "keycloak" ? new Keycloak(CONFIG.keycloak) : null;
+
+    createApp({
+      setup() {
+        const cfg = CONFIG;
+        const brand = CONFIG.brand;
+        const messages = ref([]);
+        const agents = ref([]);
+        const draft = ref("");
+        const busy = ref(false);
+        const drawer = ref(false);
+        const menu = ref(false);
+        const userName = ref(MODE === "none" ? "dev" : "…");
+        const accountUrl = ref(null);
+        const initials = ref(MODE === "none" ? "DEV" : "…");
+        const scroller = ref(null);
+        // Who owns the conversation. When the server has an identity to store
+        // it under it owns it: this page sends no transcript and reads the
+        // conversation back on load, so a reload (or another device) continues
+        // it. With no identity — the no-auth demo — nothing can be persisted,
+        // so the page keeps the transcript itself and sends it every turn.
+        let serverOwnsHistory = false;
+        // Until the answer is in, neither contract is known: a turn sent now
+        // would guess who owns the conversation, and guessing wrong is a turn
+        // nobody keeps. So the composer stays disabled until it resolves.
+        const initializing = ref(true);
+        const history = [];   // [{role, content}] sent only when we own it
+        // Handle of a specialist's unanswered question ({agent, task_id}); sent
+        // once with the next message so the server resumes that task instead of
+        // re-routing, then re-armed only if the turn asks again.
+        let pending = null;
+
+        function initialsOf(name) {
+          const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+          if (!parts.length) return "U";
+          if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+          return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        async function authHeaders() {
+          const h = { "Content-Type": "application/json" };
+          if (MODE === "keycloak") {
+            await kc.updateToken(30).catch(() => kc.login());
+            h.Authorization = `Bearer ${kc.token}`;
+          }
+          return h;
+        }
+        // In cookie mode the session cookie must ride along on every call.
+        const FETCH_OPTS = { credentials: MODE === "cookie" ? "include" : "same-origin" };
+
+        async function loadHistory() {
+          try {
+            const r = await fetch(`${CONFIG.apiBase}/api/chat/history`, { headers: await authHeaders(), ...FETCH_OPTS });
+            const data = await r.json();
+            serverOwnsHistory = !!data.persisted;
+            for (const m of data.history || []) {
+              // Only the two conversational roles are stored, and text only.
+              if (typeof m.content === "string") {
+                messages.value.push({ role: m.role === "user" ? "user" : "bot", text: m.content });
+              }
+            }
+            scrollDown();
+          } catch (e) {
+            // No answer means no server-side conversation to rely on: keep the
+            // transcript here, which is the safe half of the contract.
+            serverOwnsHistory = false;
+          } finally {
+            initializing.value = false;
+          }
+        }
+
+        async function loadAgents() {
+          try {
+            const r = await fetch(`${CONFIG.apiBase}/api/agents`, { headers: await authHeaders(), ...FETCH_OPTS });
+            const body = await r.json();
+            agents.value = (body.agents || []).map((a) => ({ ...a, _open: false }));
+          } catch (e) { /* drawer shows "discovering…" */ }
+        }
+
+        async function loadMe() {
+          try {
+            const r = await fetch(`${CONFIG.apiBase}/api/me`, { headers: await authHeaders(), ...FETCH_OPTS });
+            const me = await r.json();
+            const name = me.name || me.username || "user";
+            userName.value = name;
+            initials.value = initialsOf(name);
+            accountUrl.value = me.account_url || null;
+          } catch (e) { userName.value = "user"; initials.value = "U"; }
+        }
+
+        function scrollDown() {
+          nextTick(() => { const el = scroller.value; if (el) el.scrollTop = el.scrollHeight; });
+        }
+
+        async function send() {
+          const text = draft.value.trim();
+          if (!text || busy.value || initializing.value) return;
+          draft.value = "";
+          busy.value = true;
+          messages.value.push({ role: "user", text });
+          // reactive(): the stream mutates this object *after* the push, and only
+          // a reactive proxy makes those per-token mutations re-render live.
+          const bot = reactive({ role: "bot", text: "", agent: "", reasoning: "", contributions: {}, trace: [], streaming: true, error: false, stats: "" });
+          messages.value.push(bot);
+          scrollDown();
+
+          // Generation stats: stream chunks ≈ LLM tokens (llama.cpp emits ~1/chunk).
+          const t0 = performance.now();
+          let nTok = 0, tFirst = 0, tLast = 0;
+          const tick = () => { tLast = performance.now(); if (!nTok) tFirst = tLast; nTok++; };
+
+          try {
+            const resp = await fetch(`${CONFIG.apiBase}/api/chat/stream`, {
+              method: "POST",
+              headers: await authHeaders(),
+              body: JSON.stringify({
+                message: text,
+                // Omitted, not trimmed: sending a window of a conversation we
+                // do not fully hold is how the stored one would get truncated.
+                ...(serverOwnsHistory ? {} : { history }),
+                ...(pending ? { pending } : {}),
+              }),
+              ...FETCH_OPTS,
+            });
+            if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+            pending = null; // consumed by this turn; the stream may re-arm it
+
+            // POST + SSE → read the stream and parse "event:/data:" frames.
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = "";
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += decoder.decode(value, { stream: true });
+              let sep;
+              while ((sep = buf.indexOf("\n\n")) >= 0) {
+                const frame = buf.slice(0, sep);
+                buf = buf.slice(sep + 2);
+                const dataLine = frame.split("\n").find((l) => l.startsWith("data: "));
+                if (!dataLine) continue;
+                const ev = JSON.parse(dataLine.slice(6));
+                switch (ev.type) {
+                  case "routing":
+                    if (ev.data?.target && ev.data.target !== "none") bot.agent = ev.data.target;
+                    break;
+                  case "token":
+                    tick();
+                    // A fan-out turn streams each specialist on the "side"
+                    // channel; those fill their own panel, not the answer.
+                    if (ev.channel === "side") {
+                      bot.contributions[ev.agent] = (bot.contributions[ev.agent] || "") + ev.text;
+                    } else {
+                      bot.text += ev.text;
+                      if (ev.agent) bot.agent = ev.agent;
+                    }
+                    break;
+                  case "reasoning":
+                    tick();
+                    if (ev.channel !== "side") bot.reasoning += ev.text;
+                    break;
+                  case "trace":
+                    // A step arrives twice: when its work starts, and again with
+                    // elapsed_ms once it finishes. Replace, do not duplicate.
+                    if (ev.trace_step) {
+                      const i = bot.trace.findIndex((t) => t.step_id === ev.trace_step.step_id);
+                      if (i >= 0) bot.trace[i] = ev.trace_step;
+                      else bot.trace.push(ev.trace_step);
+                    }
+                    break;
+                  case "final":
+                    // Canonical full text: replaces the streamed accumulation.
+                    if (ev.text) bot.text = ev.text;
+                    if (ev.agent) bot.agent = ev.agent;
+                    break;
+                  case "input_required":
+                    // A specialist parked its task on a question; remember the
+                    // handle so the next message answers it (last one wins).
+                    if (ev.data?.task_id) pending = { agent: ev.agent, task_id: ev.data.task_id };
+                    break;
+                  case "error":
+                    bot.text = ev.text || "Something went wrong.";
+                    bot.error = true;
+                    break;
+                }
+                scrollDown();
+              }
+            }
+            if (!serverOwnsHistory) {
+              history.push({ role: "user", content: text });
+              history.push({ role: "assistant", content: bot.text });
+            }
+          } catch (e) {
+            bot.text = `Connection error: ${e.message}`;
+            bot.error = true;
+          } finally {
+            bot.streaming = false;
+            busy.value = false;
+            if (nTok && !bot.error) {
+              const total = (performance.now() - t0) / 1000;
+              const ttft = (tFirst - t0) / 1000;
+              // Rate over the generation window only (first → last chunk).
+              const gen = (tLast - tFirst) / 1000;
+              const rate = gen > 0 ? (nTok - 1) / gen : nTok;
+              bot.stats = `${total.toFixed(1)}s · first token ${ttft.toFixed(1)}s · ${nTok} tok · ${rate.toFixed(1)} tok/s`;
+            }
+            scrollDown();
+          }
+        }
+
+        async function logout() {
+          if (MODE === "keycloak") { kc.logout({ redirectUri: location.href }); return; }
+          if (MODE === "cookie") {
+            // Server-side logout: clears the cookies and hands back Keycloak's
+            // end-session URL (same flow the Gradio profile menu uses).
+            const r = await fetch(`${CONFIG.apiBase}/api/auth/logout`, { method: "POST", ...FETCH_OPTS });
+            const data = await r.json().catch(() => ({}));
+            window.location.href = data.logout_url || "/";
+          }
+        }
+
+        if (MODE === "keycloak") {
+          kc.init({ onLoad: "login-required", pkceMethod: "S256" }).then((ok) => {
+            if (ok) {
+              const name = kc.tokenParsed?.name || kc.tokenParsed?.preferred_username || kc.subject;
+              userName.value = name;
+              initials.value = initialsOf(name);
+              accountUrl.value = kc.createAccountUrl();
+            }
+            // After the login, not before: the request needs the bearer token
+            // or it resolves as anonymous, and the SPA would keep sending a
+            // transcript nobody persists.
+            loadHistory();
+            loadAgents();
+          }).catch(() => {
+            // A login that never resolves must not leave the composer
+            // disabled: fall back to the client-owned contract and let the
+            // user type. The turn itself will fail loudly if the token is
+            // really missing.
+            serverOwnsHistory = false;
+            initializing.value = false;
+          });
+        } else {
+          if (MODE === "cookie") loadMe();
+          loadHistory();
+          loadAgents();
+        }
+
+        return { mode: MODE, brand, messages, agents, draft, busy, initializing, drawer, menu, userName, initials, accountUrl, scroller, send, logout };
+      },
+    }).mount("#app");
+  </script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+erebots — third-party notices
+=============================
+
+erebots itself is MIT licensed; see LICENSE. This file records the third-party
+material the repository *redistributes*, and the licence review behind the
+dependencies it merely requires.
+
+
+1. Redistributed material
+-------------------------
+
+Contributor Covenant 2.1
+    CODE_OF_CONDUCT.md is adapted from it.
+
+    Licence:  CC BY 4.0
+    Source:   https://www.contributor-covenant.org/version/2/1/code_of_conduct/
+
+    The attribution line at the foot of that file is the requirement; this entry
+    records the licence it is an attribution to.
+
+
+2. Loaded at runtime, not redistributed
+---------------------------------------
+
+examples/web/index.html fetches these from public CDNs when the page is opened.
+No copy of them is in this repository, so no licence obligation attaches to it;
+they are listed because a reader of the page is entitled to know what it pulls in.
+
+    Vue 3            MIT          https://vuejs.org
+    keycloak-js 25   Apache-2.0   https://www.keycloak.org
+    Zalando Sans     OFL 1.1      Google Fonts
+
+
+3. Dependency licence review
+----------------------------
+
+Reviewed 2026-09-29 over the 120 distributions installed by `uv.lock`.
+
+    MIT              fastapi, pydantic, PyJWT, mcp, PyYAML, SQLAlchemy, pytest, …
+    Apache-2.0       a2a-sdk, openai, gradio, sentence-transformers, asyncpg, …
+    BSD-3-Clause     uvicorn, starlette, httpx, Jinja2, numpy, scikit-learn, …
+    MPL-2.0          certifi; orjson and tqdm in part
+    PSF-2.0          typing_extensions, pywin32
+    dual             cryptography (Apache-2.0 OR BSD-3-Clause), packaging, torch
+
+**No GPL, LGPL or AGPL dependency.** Nothing in the set constrains redistributing
+erebots under the MIT licence.
+
+The three MPL-2.0 packages carry file-level copyleft: the obligation attaches to
+*their* files and only if those files are modified, which does not happen here.
+They impose nothing on MIT-licensed source that merely imports them.
+
+This review is a snapshot, not a guarantee. Re-run it when `uv.lock` changes in a
+way that adds a distribution, and record the date above.

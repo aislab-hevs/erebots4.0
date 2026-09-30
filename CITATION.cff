@@ -1,0 +1,58 @@
+# How to cite this software.
+#
+# Citation File Format 1.2.0 — https://citation-file-format.github.io
+# GitHub renders a "Cite this repository" button from this file.
+#
+# The list below is the citation author list, and its order is deliberate. It is
+# not the contributor list: AUTHORS carries that one, reads it from the git
+# history, and says why the two differ. `pyproject.toml`'s `authors` field
+# repeats this list and has to be changed with it.
+
+cff-version: 1.2.0
+message: If you use this software, please cite it as below.
+title: "Erebots4.0"
+abstract: >-
+  A protocol-first framework for multi-agent conversational systems. A generalist
+  orchestrator routes each request to a domain specialist, and agents are decoupled
+  by the Agent2Agent (A2A) and Model Context Protocol (MCP) protocols rather than
+  by Python imports.
+type: software
+version: 1.0.0
+license: MIT
+repository-code: "https://github.com/aislab-hevs/erebots4.0"
+keywords:
+  - multi-agent systems
+  - large language models
+  - agent2agent
+  - model context protocol
+  - conversational agents
+
+authors:
+  - given-names: Elia
+    family-names: Pacioni
+    orcid: "https://orcid.org/0000-0002-1557-4870"
+    affiliation: "HES-SO Valais-Wallis"
+  - given-names: Davide
+    family-names: Calvaresi
+    orcid: "https://orcid.org/0000-0001-9816-7439"
+    affiliation: "HES-SO Valais-Wallis"
+  - given-names: Andrei Catalin
+    family-names: Coman
+    orcid: "https://orcid.org/0009-0000-3646-2352"
+    affiliation: "HES-SO Valais-Wallis"
+  - given-names: Ismael
+    family-names: Jaggi
+    orcid: "https://orcid.org/0009-0005-0092-5446"
+    affiliation: "HES-SO Valais-Wallis"
+  - given-names: Valerio
+    family-names: Crocetti
+    orcid: "https://orcid.org/0009-0002-3760-6041"
+    affiliation: "HES-SO Valais-Wallis"
+  - given-names: Gaetano
+    family-names: Manzo
+    orcid: "https://orcid.org/0000-0002-1682-6865"
+    affiliation: "HES-SO Valais-Wallis"
+  - given-names: Michael Ignaz
+    family-names: Schumacher
+    orcid: "https://orcid.org/0000-0002-5123-5075"
+    affiliation: "HES-SO Valais-Wallis"

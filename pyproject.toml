@@ -1,0 +1,152 @@
+[project]
+name = "erebots"
+version = "1.0.0"
+description = "A protocol-first framework for multi-agent (A2A + MCP) conversational systems."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+# The same list, in the same order, as CITATION.cff and AUTHORS. Three of the
+# three files have to agree; CITATION.cff is the one with the ORCIDs.
+authors = [
+    { name = "Elia Pacioni" },
+    { name = "Davide Calvaresi" },
+    { name = "Andrei Catalin Coman" },
+    { name = "Ismael Jaggi" },
+    { name = "Valerio Crocetti" },
+    { name = "Gaetano Manzo" },
+    { name = "Michael Ignaz Schumacher" },
+]
+maintainers = [
+    { name = "HES-SO Valais-Wallis, Applied Intelligent Agents Lab", email = "elia.pacioni@hevs.ch" },
+]
+keywords = ["agents", "multi-agent", "a2a", "mcp", "llm", "orchestration", "agentic-ai"]
+# No "License ::" classifier: the SPDX expression above is the declaration, and
+# setuptools >= 77 rejects a build that carries both. Hatchling tolerates the
+# pair, which is why it went unnoticed.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "PyJWT>=2.10.0",
+    "httpx>=0.27.0",
+    # Upper bounds on the three SDKs this framework codes directly against.
+    # Without them a fresh install resolves whatever is newest and the package
+    # does not import: mcp 2.0 renamed streamablehttp_client, and openai 3.0 is
+    # a major of its own. The lock pins exact versions for a checkout; these
+    # bounds are what protect someone installing the wheel.
+    "openai>=2.15.0,<3",
+    "uvicorn>=0.40.0",
+    # Never imported directly: uvicorn adopts it as the event loop when
+    # installed. Removing it reintroduces an asyncio deadlock between Gradio
+    # queues and the stock loop observed under load. Unix-only wheels, hence
+    # the marker.
+    "uvloop>=0.22.1; sys_platform != 'win32'",
+    "pydantic>=2.12.5",
+    # Direct dependency of the framework (erebots.agents.mcp.client and the
+    # tool servers mounted by erebots.server.create_app), so it stays in the
+    # core rather than arriving transitively through the gradio extra.
+    "mcp>=1.28,<2",
+    "cryptography>=46.0.4",
+    "jinja2>=3.1.6",
+    "PyYAML>=6.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "a2a-sdk>=1.1,<2",
+]
+
+[project.optional-dependencies]
+# The example app's chat UI (examples/gradio_ui). Plain gradio rather than
+# gradio[mcp]: every tool server this application ships is built with the MCP
+# SDK now, so nothing here hosts one through Gradio. The framework never
+# imports gradio — ``demo.py`` runs the whole protocol path without it.
+gradio = [
+    "gradio>=6.9.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/aislab-hevs/erebots4.0"
+Repository = "https://github.com/aislab-hevs/erebots4.0"
+Documentation = "https://github.com/aislab-hevs/erebots4.0/blob/main/docs/README.md"
+Issues = "https://github.com/aislab-hevs/erebots4.0/issues"
+Changelog = "https://github.com/aislab-hevs/erebots4.0/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# The installable framework package. The example app (specialists/, app.py,
+# erebots/pages — until M5) is intentionally not part of the wheel.
+packages = ["erebots"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "respx>=0.21.0",
+    "aiosqlite>=0.20.0",
+    # starlette>=1.0's TestClient (used via fastapi.testclient in the auth
+    # middleware tests) requires httpx2; without it it warns and falls back.
+    "httpx2>=2.5.0",
+]
+# Mirrors the `gradio` extra so a plain `uv sync` (see tool.uv.default-groups)
+# still runs the example app's chat UI from a checkout, while wheel installers
+# get the light core unless they ask for `erebots[gradio]`.
+gradio = [
+    "gradio>=6.9.0",
+]
+
+[tool.uv]
+default-groups = ["dev", "gradio"]
+
+# Note: ruff and mypy are run via `uvx` rather than pinned here, to keep
+# uv.lock reproducible with `uv sync --frozen` -- a locked linter moves the
+# lockfile on every one of its releases. CI pins the ruff version in the
+# workflow instead, which keeps the lockfile still and the build deterministic
+# at the same time. See CONTRIBUTING.md.
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# ``specialists`` is included so each generated skill's co-located test_skill.py
+# runs too. importlib mode lets those same-named files coexist without
+# __init__.py boilerplate in every skill/version folder.
+testpaths = ["tests", "specialists"]
+addopts = "--import-mode=importlib"
+filterwarnings = [
+    # a2a-sdk internal protobuf deprecation (label() → is_required/is_repeated).
+    "ignore:.*label\\(\\) is deprecated.*:DeprecationWarning",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["docs", ".venv"]
+
+[tool.ruff.lint]
+# Conservative starting set; tighten over the refactor milestones.
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501",   # line length is handled by the formatter, not enforced yet
+    "B008",   # FastAPI/Gradio idiom: function calls in argument defaults
+    "UP038",  # isinstance(x, X | Y) is slower at runtime; rule later removed from ruff
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Package __init__ files intentionally re-export their public symbols.
+"__init__.py" = ["F401"]
+
+[tool.mypy]
+# Lax to start (M0); non-blocking. Tightened incrementally as the core is
+# extracted and the package layout is normalized (M2+).
+python_version = "3.13"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = false
+explicit_package_bases = true
+exclude = ["docs/", "\\.venv/"]

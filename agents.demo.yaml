@@ -1,0 +1,5 @@
+# The demonstrator's A2A endpoints (see demo.py). Same format as agents.yaml;
+# point the app at this file with agents_config_path=agents.demo.yaml.
+agents:
+  - http://localhost:7860/a2a/conversion
+  - http://localhost:7860/a2a/personal

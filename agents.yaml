@@ -1,0 +1,8 @@
+# A2A endpoints the orchestrator can route to, discovered via their agent card
+# (name / description / skills). Local or remote/autonomous, any language —
+# routing only needs the URL. To add an autonomous agent on another server,
+# just add its URL here. How local agents are built is application code
+# (see specialists/registry.py), not config.
+agents:
+  - http://localhost:7860/a2a/conversion
+  - http://localhost:7860/a2a/personal

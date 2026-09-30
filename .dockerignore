@@ -1,0 +1,33 @@
+# Exclude local virtual environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+.DS_Store
+# Clear temporary data and cache
+.cache/
+.mypy_cache/
+.pytest_cache/
+# Exclude log files
+*.log
+# Exclude test data or temporary output
+test_output/
+output/
+# Exclude build folders
+build/
+dist/
+.eggs/
+*.egg-info/
+# Exclude local configuration files (secrets must never enter the image)
+.env
+.env.*
+# Exclude local docker files
+.dockerignore
+# Exclude backup files
+*~
+# Exclude system files
+Thumbs.db

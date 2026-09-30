@@ -1,0 +1,175 @@
+*{
+    font-family: "Zalando Sans Expanded", sans-serif;
+}
+
+:root {
+    --edge-padding: 20px;
+    --profile-edge-padding: 28px;
+}
+
+.show-api-divider {
+    display: none;
+}
+
+div:has(#column-container), div:has(#column-container-small) {
+    margin: auto;
+}
+
+#column-container-small {
+    width: 30vw;
+}
+
+#column-container {
+    width: 50vw;
+}
+
+.logo_light,
+.logo_dark {
+    transform: scale(0.75);
+}
+
+body:not(.dark) .logo_dark,
+body.dark .logo_light {
+    display: none;
+}
+
+.input_field,
+textarea {
+    overflow: hidden !important;
+}
+
+.input_field,
+.input_field textarea,
+.basic_button {
+    transition: opacity 0.3s ease;
+    border-radius: 0px;
+}
+
+.basic_button {
+    opacity: 0.5;
+}
+
+.basic_button:hover {
+    opacity: 1.0;
+}
+
+body:not(.dark) .basic_button {
+    color: white;
+    background: black;
+}
+
+body.dark .basic_button {
+    color: black;
+    background: white;
+}
+
+#profile-menu {
+    position: fixed;
+    top: var(--profile-edge-padding);
+    left: var(--profile-edge-padding);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: max-content;
+}
+
+#profile-button {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+#profile-button:hover {
+    transform: scale(1.03);
+}
+
+body:not(.dark) #profile-button {
+    color: black;
+    background: white;
+    border-color: black;
+}
+
+body.dark #profile-button {
+    color: white;
+    background: black;
+    border-color: white;
+}
+
+#profile-dropdown {
+    flex-direction: column;
+    width: max-content;
+    min-width: 0;
+    align-self: flex-start;
+    border: 1px solid;
+    padding: 6px;
+    background: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.profile-menu-item {
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.profile-menu-item:hover {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.profile-menu-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+body.dark #profile-dropdown {
+    background: black;
+    border-color: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+body.dark .profile-menu-item {
+    color: white;
+}
+
+body.dark .profile-menu-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+#selector-menu {
+    position: fixed !important;
+    top: var(--edge-padding);
+    right: var(--edge-padding);
+    left: auto;
+    z-index: 1000;
+    display: block;
+    margin: 0;
+    width: max-content;
+}
+
+#selector-button {
+    width: max-content !important;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    font-size: 12px;
+    text-transform: none;
+}
+
+#selector-menu button {
+    width: max-content !important;
+}
+
