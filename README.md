@@ -233,9 +233,8 @@ paths deliberately carved out of it: [docs/api-stability.md](docs/api-stability.
 
 ## Citing
 
-If you use Erebots4.0 in academic work, cite it with the metadata in
-[CITATION.cff](CITATION.cff). GitHub turns that file into a ready-made citation
-under **Cite this repository**.
+If you use Erebots4.0 in academic work, cite it with our preprint: 
+Pacioni, E., Calvaresi, D., Coman, A. C., Jaggi, I., Crocetti, V., Manzo, G., & Schumacher, M. I. (2026). EREBOTS 4.0: A framework for conversational assistants with A2A agents and MCP tools. arXiv preprint arXiv:2610.36221.
 
 [AUTHORS](AUTHORS) carries the same list in plain text, with each author's ORCID.
 
